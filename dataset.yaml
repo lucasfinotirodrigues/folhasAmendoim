@@ -1,0 +1,5 @@
+train: dataset/images/treino
+val: dataset/images/teste
+
+nc: 2  
+names: ['mancha-preta-precoce', 'mancha-preta-tardia']
