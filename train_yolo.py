@@ -3,8 +3,8 @@ from ultralytics import YOLO
 def train_yolo():
     model = YOLO('yolov8n.pt')
     model.train(
-        data=r'c:\Users\lucas\OneDrive\Área de Trabalho\folhasAmendoim\dataset.yaml', 
-        epochs=50,            
+        data=r'/home/ciag/projetosPessoais/folhasAmendoim/dataset.yaml', 
+        epochs=5,            
         imgsz=640,            
         batch=16,             
         device='cpu'              
