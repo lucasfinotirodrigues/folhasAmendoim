@@ -1,0 +1,5 @@
+train: C:/Users/lucas/Downloads/folhasAmendoim/dataset/images/train
+val: C:/Users/lucas/Downloads/folhasAmendoim/dataset/images/val
+
+nc: 2  
+names: ['mancha-preta-precoce', 'mancha-preta-tardia']
