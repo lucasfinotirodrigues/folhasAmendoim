@@ -6,6 +6,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
 from tensorflow.keras.optimizers import Adam
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder
 
 # 1. Ler o arquivo Excel
 df = pd.read_excel('Dataset.xlsx')  
@@ -14,32 +15,32 @@ print(df.head())
 # Adicionar a extensão .png aos nomes dos arquivos
 df['folha'] = df['folha'] + '.png'
 
-# Supondo que seu DataFrame tenha as colunas 'nome_imagem' e 'percentual'
-# Certifique-se de que os nomes das colunas correspondem aos do seu arquivo Excel.
+# 2. Converter as classes em números (one-hot encoding)
+le = LabelEncoder()
+df['classe_num'] = le.fit_transform(df['Classe Moderada'])
 
-# 2. Dividir os dados em treino e validação
+# 3. Dividir os dados em treino e validação
 train_df, val_df = train_test_split(df, test_size=0.3, random_state=42)
 
-# 3. Configurar o ImageDataGenerator para pré-processamento
+# 4. Configurar o ImageDataGenerator
 train_datagen = ImageDataGenerator(
-    rescale=1./255,          # Normalização dos pixels
-    rotation_range=20,       # Aumenta a variabilidade com rotações
-    horizontal_flip=True,    # Flip horizontal
-    vertical_flip=True       # (Opcional) Flip vertical, se fizer sentido para as imagens
+    rescale=1./255,
+    rotation_range=20,
+    horizontal_flip=True,
+    vertical_flip=True
 )
 
 val_datagen = ImageDataGenerator(rescale=1./255)
 
-# 4. Criar os geradores a partir do DataFrame
-# Supondo que as imagens estão na pasta 'imagens'
+# 5. Criar os geradores
 train_generator = train_datagen.flow_from_dataframe(
     dataframe=train_df,
-    directory='dataset',        # Pasta onde estão as imagens
-    x_col='folha',        # Coluna com os nomes dos arquivos
-    y_col='percentual',         # Coluna com o rótulo (valor percentual de lesão)
-    target_size=(224, 224),     # Redimensionamento para o tamanho esperado pelo modelo
+    directory='dataset',
+    x_col='folha',
+    y_col='percentual',
+    target_size=(224, 224),
     batch_size=32,
-    class_mode='raw'            # 'raw' para regressão; se for classificação, use 'categorical'
+    class_mode='raw'
 )
 
 val_generator = val_datagen.flow_from_dataframe(
@@ -49,56 +50,45 @@ val_generator = val_datagen.flow_from_dataframe(
     y_col='percentual',
     target_size=(224, 224),
     batch_size=32,
-    class_mode='raw'            # Alterado para 'raw' para regressão
+    class_mode='raw'
 )
 
-# Agora, o pipeline está pronto para ser integrado ao seu modelo, como mostrado anteriormente.
-
-# 5. Importar as bibliotecas necessárias para o modelo
-from tensorflow.keras.applications import VGG16
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
-from tensorflow.keras.optimizers import Adam
-
-# 6. Criar o modelo base (VGG16)
+# 6. Criar o modelo com duas saídas
 base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
 
-# 7. Congelar as camadas do modelo base
+# Congelar camadas base
 for layer in base_model.layers:
     layer.trainable = False
 
-# 8. Adicionar camadas personalizadas
+# Adicionar camadas compartilhadas
 x = base_model.output
 x = GlobalAveragePooling2D()(x)
 x = Dense(1024, activation='relu')(x)
 x = Dropout(0.5)(x)
-x = Dense(512, activation='relu')(x)
-x = Dropout(0.3)(x)
-predictions = Dense(1, activation='linear')(x)  # Uma saída para regressão
 
-# 9. Criar o modelo final
-model = Model(inputs=base_model.input, outputs=predictions)
+# Camada para percentual
+output_percentual = Dense(1, activation='linear', name='percentual')(x)
 
-# 10. Compilar o modelo
+# Criar modelo
+model = Model(inputs=base_model.input, outputs=output_percentual)
+
+# Compilar modelo
 model.compile(
     optimizer=Adam(learning_rate=0.0001),
     loss='mean_squared_error',
     metrics=['mean_absolute_error']
 )
 
-# 11. Treinar o modelo
-steps_per_epoch = len(train_df) // 32  # batch_size é 32
-validation_steps = len(val_df) // 32    # batch_size é 32
-
+# Treinar modelo
 history = model.fit(
     train_generator,
     epochs=30,
     validation_data=val_generator,
-    steps_per_epoch=steps_per_epoch,
-    validation_steps=validation_steps
+    steps_per_epoch=len(train_df) // 32,
+    validation_steps=len(val_df) // 32
 )
 
-# 12. Salvar o modelo
+# Salvar modelo
 model.save('modelo_lesoes_folhas.h5')
 
 # 13. Plotar o histórico de treinamento
